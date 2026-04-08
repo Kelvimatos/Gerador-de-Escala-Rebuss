@@ -1,5 +1,6 @@
 
 const STORAGE_KEY = "rebuss_escalas_v4";
+const USER_NAME_KEY = "rebuss_user_name";
 
 let selectedCity = "São Paulo";
 let selectedUF   = "SP";
@@ -74,12 +75,12 @@ async function findNearestStation(address) {
     const query = `
 [out:json][timeout:15];
 (
-  node"railway"="station";
-  node"station"="subway";
-  node"railway"="halt";
-  node"highway"="bus_station";
-  node"amenity"="bus_station";
-  node["bus"="yes"]"public_transport"="stop_position";
+  node(around:${RADIUS_M}, ${lat}, ${lon})["railway"="station"];
+  node(around:${RADIUS_M}, ${lat}, ${lon})["station"="subway"];
+  node(around:${RADIUS_M}, ${lat}, ${lon})["railway"="halt"];
+  node(around:${RADIUS_M}, ${lat}, ${lon})["highway"="bus_station"];
+  node(around:${RADIUS_M}, ${lat}, ${lon})["amenity"="bus_station"];
+  node(around:${RADIUS_M}, ${lat}, ${lon})["bus"="yes"]["public_transport"="stop_position"];
 );
 out body;`;
 
@@ -181,35 +182,37 @@ function generate() {
   const st = document.getElementById("store").value.trim();
   const ad = document.getElementById("address").value.trim();
   const ob = document.getElementById("obs").value.trim();
+  const un = document.getElementById("userName").value.trim() || "Equipe";
 
-  if (!dt || !tm || !st || !ad) {
-    showToast("Preencha Data, Horário, Loja e Endereço.", "⚠️");
+  if (!dt || !tm || !st || !ad || !un) {
+    showToast("Preencha todos os campos, incluindo seu nome.", "⚠️");
     return;
   }
+  localStorage.setItem(USER_NAME_KEY, un);
 
   const [yyyy, mm, dd] = dt.split("-");
   const dateObj = new Date(yyyy, mm - 1, dd); 
   const dateStr = `${dd}/${mm}/${yyyy}`;
   const wd = weekdayName(dateObj.getDay());
 
-  let stationLine = "";
+  let stationInfoText = "";
   if (includeStation && stationData) {
-    const lineInfo = stationData.lineRef ? ` (Linha ${stationData.lineRef})` : "";
-    stationLine = `\n${stationData.typeEmoji} *${stationData.typeLabel} mais próximo${stationData.isBus ? "" : "a"}:* ${stationData.name}${lineInfo} (~${stationData.distKm} km)`;
+    const lineRefText = stationData.lineRef ? ` (L${stationData.lineRef})` : "";
+    stationInfoText = `\n${stationData.typeEmoji} *${stationData.typeLabel} mais próximo${stationData.isBus ? "" : "a"}:* ${stationData.name}${lineRefText} (~${stationData.distKm} km)`;
   }
 
-  const obsLine = ob ? `\n📝 ${ob}` : "";
+  const obsInfoText = ob ? `\n📝 ${ob}` : "";
 
   const text =
 `${saudacao()}! Segue sua escala:
 
 📅 *${dateStr}* (${wd}) às *${tm}*
 🏪 *${st}*
-📍 ${ad} – ${selectedCity}/${selectedUF}${stationLine}${obsLine}
+📍 ${ad} – ${selectedCity}/${selectedUF}${stationInfoText}${obsInfoText}
 
 Confirma presença? ✅
 
-_Kelvi – Rebuss_`;
+_${un} – Rebuss_`;
 
   document.getElementById("preview").textContent = text;
   saveToHistory({ dt, tm, store: st, address: ad, city: selectedCity, uf: selectedUF,
@@ -323,4 +326,7 @@ function copyModal() {
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
 
-document.addEventListener("DOMContentLoaded", renderHistory);
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("userName").value = localStorage.getItem(USER_NAME_KEY) || "";
+  renderHistory();
+});
