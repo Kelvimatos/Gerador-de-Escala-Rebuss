@@ -58,11 +58,11 @@ async function findNearestStation(address) {
   clearStationUI(true);
   stationData = null;
   
-  
-  const cleanAddr = address.replace(/,+/g, ',').replace(/,\s*$/, '').trim();
+  // Limpeza robusta: remove múltiplos espaços, trata traços e limpa vírgulas redundantes
+  const cleanAddr = address.replace(/\s+/g, ' ').replace(/-+/g, '-').replace(/,+/g, ',').replace(/,\s*$/, '').trim();
 
   try {
-   
+    // Busca coordenadas do endereço
     const geoRes = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanAddr + ", " + selectedCity + ", " + selectedUF + ", Brasil")}&format=json&limit=1`,
       { headers: { "Accept-Language": "pt-BR", "User-Agent": "RebussEscalas/4.0" } }
@@ -72,17 +72,17 @@ async function findNearestStation(address) {
 
     const { lat, lon } = geoData[0];
 
+    // Busca nwr (node, way, relation) para pegar terminais grandes mapeados como polígonos
     const query = `
-[out:json][timeout:15];
+[out:json][timeout:25];
 (
-  node(around:${RADIUS_M}, ${lat}, ${lon})["railway"="station"];
-  node(around:${RADIUS_M}, ${lat}, ${lon})["station"="subway"];
-  node(around:${RADIUS_M}, ${lat}, ${lon})["railway"="halt"];
-  node(around:${RADIUS_M}, ${lat}, ${lon})["highway"="bus_station"];
-  node(around:${RADIUS_M}, ${lat}, ${lon})["amenity"="bus_station"];
-  node(around:${RADIUS_M}, ${lat}, ${lon})["bus"="yes"]["public_transport"="stop_position"];
+  nwr(around:${RADIUS_M}, ${lat}, ${lon})["railway"~"station|halt"];
+  nwr(around:${RADIUS_M}, ${lat}, ${lon})["station"="subway"];
+  nwr(around:${RADIUS_M}, ${lat}, ${lon})["highway"="bus_station"];
+  nwr(around:${RADIUS_M}, ${lat}, ${lon})["amenity"="bus_station"];
+  nwr(around:${RADIUS_M}, ${lat}, ${lon})["public_transport"~"station|stop_area"];
 );
-out body;`;
+out center;`;
 
     const ovRes  = await fetch("https://overpass-api.de/api/interpreter", {
       method: "POST", body: query,
@@ -101,11 +101,16 @@ out body;`;
 
     const elements = ovData.elements
       .filter(el => el.tags && el.tags.name)
-      .map(el => ({
-        ...el,
-        distM: distM(parseFloat(lat), parseFloat(lon), el.lat, el.lon),
-        isRail: el.tags.railway === "station" || el.tags.station === "subway" || el.tags.railway === "halt",
-      }))
+      .map(el => {
+        // Pega lat/lon de nodes ou o centro de ways/relations
+        const eLat = el.lat || (el.center && el.center.lat);
+        const eLon = el.lon || (el.center && el.center.lon);
+        return {
+          ...el,
+          distM: distM(parseFloat(lat), parseFloat(lon), eLat, eLon),
+          isRail: el.tags.railway === "station" || el.tags.station === "subway" || el.tags.railway === "halt",
+        };
+      })
       .sort((a, b) => {
        
         if (a.isRail !== b.isRail) return a.isRail ? -1 : 1;
