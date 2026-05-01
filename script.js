@@ -186,6 +186,7 @@ function generate() {
   const tm = document.getElementById("time").value;
   const st = document.getElementById("store").value.trim();
   const ad = document.getElementById("address").value.trim();
+  const ar = document.getElementById("arrival").value.trim();
   const ob = document.getElementById("obs").value.trim();
   const un = document.getElementById("userName").value.trim() || "Equipe";
 
@@ -206,6 +207,7 @@ function generate() {
     stationInfoText = `\n${stationData.typeEmoji} *${stationData.typeLabel} mais próximo${stationData.isBus ? "" : "a"}:* ${stationData.name}${lineRefText} (~${stationData.distKm} km)`;
   }
 
+  const arrivalInfoText = ar ? `\n🚶 *Chegada:* ${ar}` : "";
   const obsInfoText = ob ? `\n📝 ${ob}` : "";
 
   const text =
@@ -213,7 +215,7 @@ function generate() {
 
 📅 *${dateStr}* (${wd}) às *${tm}*
 🏪 *${st}*
-📍 ${ad} – ${selectedCity}/${selectedUF}${stationInfoText}${obsInfoText}
+📍 ${ad} – ${selectedCity}/${selectedUF}${stationInfoText}${arrivalInfoText}${obsInfoText}
 
 Confirma presença? ✅
 
@@ -221,7 +223,7 @@ _${un} – Rebuss_`;
 
   document.getElementById("preview").textContent = text;
   saveToHistory({ dt, tm, store: st, address: ad, city: selectedCity, uf: selectedUF,
-    obs: ob, text, station: stationData ? {...stationData} : null,
+    obs: ob, arrival: ar, text, station: stationData ? {...stationData} : null,
     createdAt: new Date().toISOString() });
   renderHistory();
 }
