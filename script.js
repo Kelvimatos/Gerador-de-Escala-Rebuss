@@ -207,7 +207,9 @@ function generate() {
     stationInfoText = `\n${stationData.typeEmoji} *${stationData.typeLabel} mais próximo${stationData.isBus ? "" : "a"}:* ${stationData.name}${lineRefText} (~${stationData.distKm} km)`;
   }
 
-  const arrivalInfoText = ar ? `\n🚶 *Chegada:* ${ar}` : "";
+  const arrivalInfoText = ar
+    ? `\n🚶 *Como chegar:*\n1️⃣ Clique no link abaixo:\n🔗 ${ar}\n2️⃣ Quando abrir o Maps, clique em *Rotas*.\n3️⃣ O aplicativo vai mostrar o caminho para você chegar ao local.`
+    : "";
   const obsInfoText = ob ? `\n📝 ${ob}` : "";
 
   const text =
@@ -232,11 +234,21 @@ async function copyText() {
   const text = document.getElementById("preview").textContent.trim();
   if (!text) { showToast("Gere a mensagem primeiro.", "⚠️"); return; }
   
-  if (navigator.share) {
-    try { await navigator.share({ text }); return; } catch {}
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("Mensagem copiada com sucesso!", "✅");
+  } catch {
+    // Fallback for older browsers
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    showToast("Mensagem copiada com sucesso!", "✅");
   }
-  
-  navigator.clipboard.writeText(text).then(() => showToast("Mensagem copiada!"));
 }
 
 
@@ -336,4 +348,16 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal()
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("userName").value = localStorage.getItem(USER_NAME_KEY) || "";
   renderHistory();
+
+  // Maps link live hint
+  document.getElementById("arrival").addEventListener("input", function() {
+    const hint = document.getElementById("maps-hint");
+    const val = this.value.trim();
+    if (val) {
+      hint.innerHTML = `🔗 <a href="${escHtml(val)}" target="_blank" rel="noopener">${escHtml(val.length > 60 ? val.substring(0,60)+"…" : val)}</a>`;
+      hint.classList.add("show");
+    } else {
+      hint.classList.remove("show");
+    }
+  });
 });
